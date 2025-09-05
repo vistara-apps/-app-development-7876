@@ -1,12 +1,22 @@
-import React, { useState } from 'react'
-import { ArrowLeft, Brain, User, ShoppingCart, Star, TrendingUp } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { ArrowLeft, Brain, User, ShoppingCart, Star, TrendingUp, Loader } from 'lucide-react'
 import Card from './ui/Card'
 import Button from './ui/Button'
+import Input from './ui/Input'
+import Select from './ui/Select'
+import { llmService } from '../services/api'
+import { CustomerProfile } from '../models'
+import AgentChat from './ui/AgentChat'
 
 const ProductRecommender = ({ onBack }) => {
   const [customerProfile, setCustomerProfile] = useState('')
   const [recommendations, setRecommendations] = useState([])
   const [isLoading, setIsLoading] = useState(false)
+  const [selectedCustomerType, setSelectedCustomerType] = useState('')
+  const [chatMessages, setChatMessages] = useState([])
+  const [showChat, setShowChat] = useState(false)
+  const [confidence, setConfidence] = useState(0)
+  const [reasoning, setReasoning] = useState('')
 
   const sampleProducts = [
     {
@@ -38,13 +48,77 @@ const ProductRecommender = ({ onBack }) => {
     }
   ]
 
-  const generateRecommendations = () => {
+  const generateRecommendations = async () => {
+    if (!customerProfile.trim()) return
+    
     setIsLoading(true)
-    // Simulate AI processing
-    setTimeout(() => {
+    try {
+      // Create customer profile object
+      const profile = new CustomerProfile(
+        'customer-' + Date.now(),
+        { age: 25, location: 'Urban' },
+        { categories: ['Electronics', 'Fashion'], priceRange: 'mid' },
+        []
+      )
+      
+      // Generate recommendations using LLM service
+      const result = await llmService.generateProductRecommendations(
+        { description: customerProfile, type: selectedCustomerType },
+        sampleProducts,
+        { location: 'store', season: 'current' }
+      )
+      
+      setRecommendations(result.recommendations)
+      setConfidence(result.confidence)
+      setReasoning(result.reasoning)
+      
+      // Add to chat history
+      setChatMessages(prev => [
+        ...prev,
+        {
+          role: 'user',
+          content: `Generate recommendations for: ${customerProfile}`,
+          timestamp: new Date()
+        },
+        {
+          role: 'assistant',
+          content: `I've generated ${result.recommendations.length} personalized recommendations with ${Math.round(result.confidence * 100)}% confidence.`,
+          timestamp: new Date()
+        }
+      ])
+    } catch (error) {
+      console.error('Error generating recommendations:', error)
+      // Fallback to sample data
       setRecommendations(sampleProducts)
+    } finally {
       setIsLoading(false)
-    }, 2000)
+    }
+  }
+
+  const customerTypes = [
+    { value: 'new', label: 'New Customer', description: 'First-time visitor' },
+    { value: 'returning', label: 'Returning Customer', description: 'Has purchased before' },
+    { value: 'vip', label: 'VIP Customer', description: 'High-value customer' },
+    { value: 'browsing', label: 'Just Browsing', description: 'Looking around' }
+  ]
+
+  const handleChatMessage = async (message) => {
+    setChatMessages(prev => [
+      ...prev,
+      { role: 'user', content: message, timestamp: new Date() }
+    ])
+    
+    // Simulate AI response
+    setTimeout(() => {
+      setChatMessages(prev => [
+        ...prev,
+        { 
+          role: 'assistant', 
+          content: 'I can help you refine these recommendations. What specific aspects would you like me to focus on?',
+          timestamp: new Date()
+        }
+      ])
+    }, 1000)
   }
 
   const customerProfiles = [
@@ -79,6 +153,14 @@ const ProductRecommender = ({ onBack }) => {
             </div>
             
             <div className="space-y-4">
+              <Select
+                label="Customer Type"
+                options={customerTypes}
+                value={selectedCustomerType}
+                onChange={(option) => setSelectedCustomerType(option.value)}
+                placeholder="Select customer type..."
+              />
+
               <div>
                 <label className="block text-sm font-medium text-muted mb-2">
                   Describe the customer
@@ -115,7 +197,7 @@ const ProductRecommender = ({ onBack }) => {
               >
                 {isLoading ? (
                   <div className="flex items-center space-x-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    <Loader className="animate-spin" size={16} />
                     <span>Generating...</span>
                   </div>
                 ) : (
@@ -125,8 +207,54 @@ const ProductRecommender = ({ onBack }) => {
                   </div>
                 )}
               </Button>
+
+              {confidence > 0 && (
+                <div className="mt-4 p-3 bg-accent/10 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">AI Confidence</span>
+                    <span className="text-sm font-bold text-primary">
+                      {Math.round(confidence * 100)}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-border rounded-full h-2">
+                    <div 
+                      className="bg-primary h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${confidence * 100}%` }}
+                    ></div>
+                  </div>
+                  {reasoning && (
+                    <p className="text-xs text-muted mt-2">{reasoning}</p>
+                  )}
+                </div>
+              )}
+
+              {recommendations.length > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowChat(!showChat)}
+                  className="w-full mt-2"
+                >
+                  {showChat ? 'Hide' : 'Show'} AI Assistant
+                </Button>
+              )}
             </div>
           </Card>
+
+          {/* AI Chat Component */}
+          {showChat && (
+            <Card className="p-0 mt-4">
+              <AgentChat
+                variant="compact"
+                messages={chatMessages}
+                onSendMessage={handleChatMessage}
+                placeholder="Ask about these recommendations..."
+                tools={[
+                  { name: 'Product Analysis', description: 'Analyze product features', isActive: true },
+                  { name: 'Customer Insights', description: 'Customer behavior analysis', isActive: false }
+                ]}
+              />
+            </Card>
+          )}
         </div>
 
         {/* Recommendations */}
