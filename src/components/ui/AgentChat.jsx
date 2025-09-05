@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Send, Bot, User, Loader, Tool, Zap } from 'lucide-react'
+import { Send, Bot, User, Loader, Wrench, Zap } from 'lucide-react'
 import Button from './Button'
 import Input from './Input'
 import Card from './Card'
@@ -83,7 +83,7 @@ const AgentChat = ({
     <Card className="p-3 hover:shadow-md transition-shadow cursor-pointer">
       <div className="flex items-center space-x-3">
         <div className="p-2 bg-primary/10 rounded-lg">
-          <Tool size={16} className="text-primary" />
+          <Wrench size={16} className="text-primary" />
         </div>
         <div className="flex-1">
           <h4 className="text-sm font-medium text-foreground">{tool.name}</h4>
@@ -107,7 +107,7 @@ const AgentChat = ({
           </div>
           {variant === 'withTools' && tools.length > 0 && (
             <div className="flex items-center space-x-1">
-              <Tool size={16} className="text-muted" />
+              <Wrench size={16} className="text-muted" />
               <span className="text-sm text-muted">{tools.length} tools</span>
             </div>
           )}
